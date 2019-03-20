@@ -37,7 +37,7 @@ func NewHttpClient() *http.Client {
 		//Transport: http.DefaultTransport,
 		Transport: tr,
 		//手动重定向
-		//CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		//CheckRedirect: func(req *http.Param, via []*http.Param) error {
 		//	return http.ErrUseLastResponse
 		//},
 	}
@@ -69,7 +69,7 @@ func NewHttpClientProxy(proxyUrl string) *http.Client {
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
-		//CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		//CheckRedirect: func(req *http.Param, via []*http.Param) error {
 		//	return http.ErrUseLastResponse
 		//},
 	}
@@ -100,7 +100,7 @@ func NewHttpClientSocks5(addr string, auth *proxy.Auth) (*http.Client, error) {
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
-		//CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		//CheckRedirect: func(req *http.Param, via []*http.Param) error {
 		//	return http.ErrUseLastResponse
 		//},
 	}

@@ -52,7 +52,7 @@ var MimeMap = map[string]string{
 	"application":                  ".application",
 }
 
-type Request struct {
+type Param struct {
 	//请求地址
 	Url string
 	//请求方式
@@ -69,7 +69,7 @@ type Request struct {
 	FormBody map[string]string
 }
 
-type Response struct {
+type Result struct {
 	//最终URL
 	Url string
 	//响应字节流
@@ -94,8 +94,8 @@ type Response struct {
 	TotalTime int64
 }
 
-func NewRequest(url, method string) *Request {
-	return &Request{
+func NewParam(url, method string) *Param {
+	return &Param{
 		Url:       url,
 		Method:    method,
 		HeaderMap: make(map[string]string),
@@ -104,13 +104,13 @@ func NewRequest(url, method string) *Request {
 	}
 }
 
-func Do(req *Request, client *http.Client) *Response {
-	resp := &Response{}
-	uri := req.Url
+func Do(param *Param, client *http.Client) *Result {
+	result := &Result{}
+	uri := param.Url
 	//判断url是否合法
 	if !strings.HasPrefix(uri, "http") {
 		log.Println("===============URL不合法===============")
-		return resp
+		return result
 	}
 	//判断请求方式并新建
 	request, err := http.NewRequest("", uri, nil)
@@ -120,55 +120,52 @@ func Do(req *Request, client *http.Client) *Response {
 
 	//设置请求头信息
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded") //POST必填
-	if req.UserAgent == "" {
+	if param.UserAgent == "" {
 		//设置默认UA
-		req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36"
+		param.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36"
 	}
-	request.Header.Add("User-Agent", req.UserAgent)
+	request.Header.Add("User-Agent", param.UserAgent)
 	//浏览器支持的 MIME 类型分别是 text/html、application/xhtml+xml、application/xml 和 */*，
 	//优先顺序是它们从左到右的排列顺序。
 	request.Header.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	request.Header.Add("Accept-Language", "zh-CN,zh;q=0.8")
-	for name, value := range req.HeaderMap {
+	for name, value := range param.HeaderMap {
 		request.Header.Add(name, value)
 	}
 
 	//POST请求处理
-	switch req.Method {
-	case POST:
-		request.Method = "POST"
-		values := url.Values{}
-		for name, value := range req.FormBody {
-			values.Add(name, value)
-		}
-		request.PostForm = values
+	request.Method = param.Method
+	values := url.Values{}
+	for name, value := range param.FormBody {
+		values.Add(name, value)
 	}
+	request.PostForm = values
 
 	//发起请求
 	response, err := client.Do(request)
 	if err != nil {
 		log.Println(err)
-		return resp
+		return result
 	}
+	defer response.Body.Close()
 	//保存响应cookie
 	for _, v := range response.Cookies() {
-		resp.Cookies += v.String()
+		result.Cookies += v.String()
 	}
 
 	//获取响应状态(重定向会自动处理)
 	httpCode := response.StatusCode
-	resp.Code = httpCode
-	defer response.Body.Close()
+	result.Code = httpCode
 	//处理body
 
 	//最终url
-	resp.Url = response.Request.URL.String()
+	result.Url = response.Request.URL.String()
 	//读取内容
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Println(err)
 	}
-	resp.Body = body
+	result.Body = body
 
 	//buf := new(bytes.Buffer)
 	//buf.ReadFrom(response.Body)
@@ -183,27 +180,27 @@ func Do(req *Request, client *http.Client) *Response {
 	for _, cookie := range response.Cookies() {
 		cookies += cookie.String() + ";"
 	}
-	resp.Cookies = cookies
+	result.Cookies = cookies
 	//检测ContentType
 	mimeType := http.DetectContentType(body)
-	resp.MimeType = mimeType
+	result.MimeType = mimeType
 	//判断是否需要的类型
 	fileType, ok := MimeMap[strings.TrimSpace(strings.Split(mimeType, ";")[0])]
 	if ok {
-		resp.FileType = fileType
+		result.FileType = fileType
 		switch fileType {
 		case ".html", ".xml", ".css", ".json", ".js", ".txt":
 			//检测encoding
 			enc, charSet, _ := charset.DetermineEncoding(body, mimeType)
 			fmt.Println("charset:", charSet)
 			if charSet == "utf-8" {
-				resp.Text = string(body)
+				result.Text = string(body)
 			} else { //转码
 				bts, _ := enc.NewDecoder().Bytes(body)
-				resp.Text = string(bts)
+				result.Text = string(bts)
 			}
 		}
 	}
-	log.Println(response.Status + " | " + response.Proto + " | " + resp.MimeType + " | " + uri)
-	return resp
+	log.Println(response.Status + " | " + response.Proto + " | " + result.MimeType + " | " + uri)
+	return result
 }
